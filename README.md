@@ -1,0 +1,2 @@
+# rt_thread_read_code_recode
+研究rtt内核以及fatfs系统的代码理解注释，方便后续的笔记整理和总结
