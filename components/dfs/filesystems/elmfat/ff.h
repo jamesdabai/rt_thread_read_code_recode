@@ -142,6 +142,7 @@ typedef struct {
 	WORD	id;			/* Owner file system mount ID */
 	BYTE	attr;		/* Object attribute */
 	BYTE	stat;		/* Object chain status (b1-0: =0:not contiguous, =2:contiguous (no data on FAT), =3:got flagmented, b2:sub-directory stretched) */
+	                    //对象链状态（b1-0：= 0：不连续，= 2：连续（FAT上没有数据），= 3：标记，b2：子目录拉伸
 	DWORD	sclust;		/* Object start cluster (0:no cluster or root directory) */
 	FSIZE_t	objsize;	/* Object size (valid when sclust != 0) */
 #if _FS_EXFAT

@@ -1229,13 +1229,13 @@ FRESULT fill_fat_chain (
 
 #if !_FS_READONLY
 /*-----------------------------------------------------------------------*/
-/* FAT handling - Remove a cluster chain                                 */
+/* FAT handling - Remove a cluster chain 从fat表中移除一个文件链表                  */
 /*-----------------------------------------------------------------------*/
 static
 FRESULT remove_chain (	/* FR_OK(0):succeeded, !=0:error */
 	_FDID* obj,			/* Corresponding object */
-	DWORD clst,			/* Cluster to remove a chain from */
-	DWORD pclst			/* Previous cluster of clst (0:an entire chain) */
+	DWORD clst,			/* Cluster to remove a chain from 从该族开始移除*/
+	DWORD pclst			/* Previous cluster of clst (0:an entire chain) 一般为0，不为0一般在文件截断中使用*/
 )
 {
 	FRESULT res = FR_OK;
@@ -1252,18 +1252,18 @@ FRESULT remove_chain (	/* FR_OK(0):succeeded, !=0:error */
 
 	/* Mark the previous cluster 'EOC' on the FAT if it exists */
 	if (pclst && (!_FS_EXFAT || fs->fs_type != FS_EXFAT || obj->stat != 2)) {
-		res = put_fat(fs, pclst, 0xFFFFFFFF);
+		res = put_fat(fs, pclst, 0xFFFFFFFF);//将前一个fat记录标记为文件最后族
 		if (res != FR_OK) return res;
 	}
 
 	/* Remove the chain */
 	do {
-		nxt = get_fat(obj, clst);			/* Get cluster status */
-		if (nxt == 0) break;				/* Empty cluster? */
+		nxt = get_fat(obj, clst);			/* Get cluster status 获取链表中的下一个族的族号*/
+		if (nxt == 0) break;				/* Empty cluster?这是get_fat函数中定义的返回值，并不是都代表fat表项中的值 */
 		if (nxt == 1) return FR_INT_ERR;	/* Internal error? */
 		if (nxt == 0xFFFFFFFF) return FR_DISK_ERR;	/* Disk error? */
 		if (!_FS_EXFAT || fs->fs_type != FS_EXFAT) {
-			res = put_fat(fs, clst, 0);		/* Mark the cluster 'free' on the FAT */
+			res = put_fat(fs, clst, 0);//将fat项值修改为0，代表没被使用		/* Mark the cluster 'free' on the FAT */
 			if (res != FR_OK) return res;
 		}
 		if (fs->free_clst < fs->n_fatent - 2) {	/* Update FSINFO */
@@ -1324,13 +1324,15 @@ DWORD create_chain (	/* 0:No free cluster, 1:Internal error, 0xFFFFFFFF:Disk err
 
 	if (clst == 0) {	/* Create a new chain */
 		scl = fs->last_clst;				/* Get suggested cluster to start from */
+		//我认为这是在做擦写平衡，fs->last_clst这个变量是在上次寻找了一圈过后找到的最近的一个空族
+		//这次是在上次的基础上在往后面循环找空闲族这样保证了空闲族的循环使用，
 		if (scl == 0 || scl >= fs->n_fatent) scl = 1;
 	}
 	else {				/* Stretch current chain */
 		cs = get_fat(obj, clst);			/* Check the cluster status */
 		if (cs < 2) return 1;				/* Invalid value */
 		if (cs == 0xFFFFFFFF) return cs;	/* A disk error occurred */
-		if (cs < fs->n_fatent) return cs;	/* It is already followed by next cluster */
+		if (cs < fs->n_fatent) return cs;	/* It is already followed by next cluster 有可用的在链表中的族*/
 		scl = clst;
 	}
 
@@ -1355,12 +1357,15 @@ DWORD create_chain (	/* 0:No free cluster, 1:Internal error, 0xFFFFFFFF:Disk err
 		ncl = scl;	/* Start cluster */
 		for (;;) {
 			ncl++;							/* Next cluster */
+			//在fat表中从传入族开始往后面的族开始寻找空闲族，fat表为0的族
+			//当族号增加超过了fat表最大条目数时，又从第二族还是找往后查找空闲族
+			//当从头开查找到起始位置时，还没找到空闲族，则表示整个文件系统中没有储存空间了
 			if (ncl >= fs->n_fatent) {		/* Check wrap-around */
 				ncl = 2;
 				if (ncl > scl) return 0;	/* No free cluster */
 			}
 			cs = get_fat(obj, ncl);			/* Get the cluster status */
-			if (cs == 0) break;				/* Found a free cluster */
+			if (cs == 0) break;				/* Found a free cluster 找到个空闲族，族号为ncl*/
 			if (cs == 1 || cs == 0xFFFFFFFF) return cs;	/* An error occurred */
 			if (ncl == scl) return 0;		/* No free cluster */
 		}
@@ -1369,16 +1374,18 @@ DWORD create_chain (	/* 0:No free cluster, 1:Internal error, 0xFFFFFFFF:Disk err
 	if (_FS_EXFAT && fs->fs_type == FS_EXFAT && obj->stat == 2) {	/* Is it a contiguous chain? */
 		res = FR_OK;						/* FAT does not need to be written */
 	} else {
-		res = put_fat(fs, ncl, 0xFFFFFFFF);	/* Mark the new cluster 'EOC' */
+		res = put_fat(fs, ncl, 0xFFFFFFFF);	/* Mark the new cluster 'EOC' 得到一个新空闲族，并将其写入结束标记*/
 		if (res == FR_OK && clst) {
 			res = put_fat(fs, clst, ncl);	/* Link it from the previous one if needed */
+			//将输入族和新找到的族建立联系，写入新找到族的族号，代表该族的下一族就是新找到的族
+			//当clst为0的时候，则该族表示第一个族节点，没有前面族可连接
 		}
 	}
 
 	if (res == FR_OK) {			/* Update FSINFO if function succeeded. */
-		fs->last_clst = ncl;
-		if (fs->free_clst < fs->n_fatent - 2) fs->free_clst--;
-		fs->fsi_flag |= 1;
+		fs->last_clst = ncl;//将新找到的族记录下来，表示最近使用过的族
+		if (fs->free_clst < fs->n_fatent - 2) fs->free_clst--;//在系统记录中更新资源情况
+		fs->fsi_flag |= 1;//告诉文件系统，资源管理记录有更新，下次操作该记录结构体时需要回写进磁盘
 	} else {
 		ncl = (res == FR_DISK_ERR) ? 0xFFFFFFFF : 1;	/* Failed. Create error status */
 	}
@@ -1490,28 +1497,29 @@ FRESULT dir_next (	/* FR_OK(0):succeeded, FR_NO_FILE:End of table, FR_DENIED:Cou
 	UINT n;
 #endif
 
-	ofs = dp->dptr + SZDIRE;	/* Next entry */
+	ofs = dp->dptr + SZDIRE;	/* Next entry ，指向下一个目录记录条目*/
 	if (!dp->sect || ofs >= (DWORD)((_FS_EXFAT && fs->fs_type == FS_EXFAT) ? MAX_DIR_EX : MAX_DIR)) return FR_NO_FILE;	/* Report EOT when offset has reached max value */
 
-	if (ofs % SS(fs) == 0) {	/* Sector changed? */
-		dp->sect++;				/* Next sector */
+	if (ofs % SS(fs) == 0) {	/* Sector changed?目录偏移已经到下一个扇区了，需要增加扇区 */
+		dp->sect++;				/* Next sector增加扇区 */
 
-		if (!dp->clust) {		/* Static table */
+		if (!dp->clust) {		/* Static table 是根目录*/
 			if (ofs / SZDIRE >= fs->n_rootdir) {	/* Report EOT if it reached end of static table */
 				dp->sect = 0; return FR_NO_FILE;
 			}
 		}
 		else {					/* Dynamic table */
-			if ((ofs / SS(fs) & (fs->csize - 1)) == 0) {		/* Cluster changed? */
-				clst = get_fat(&dp->obj, dp->clust);			/* Get next cluster */
+			if ((ofs / SS(fs) & (fs->csize - 1)) == 0) {		/* Cluster changed? 偏移到了下一族*/
+				clst = get_fat(&dp->obj, dp->clust);			/* Get next cluster 获取下一族的族号*/
 				if (clst <= 1) return FR_INT_ERR;				/* Internal error */
 				if (clst == 0xFFFFFFFF) return FR_DISK_ERR;		/* Disk error */
 				if (clst >= fs->n_fatent) {						/* Reached end of dynamic table */
+				//已经到了fat表的最末端，无32字节的记录表可用了
 #if !_FS_READONLY
 					if (!stretch) {								/* If no stretch, report EOT */
 						dp->sect = 0; return FR_NO_FILE;
 					}
-					clst = create_chain(&dp->obj, dp->clust);	/* Allocate a cluster */
+					clst = create_chain(&dp->obj, dp->clust);	/* Allocate a cluster分配群集 */
 					if (clst == 0) return FR_DENIED;			/* No free cluster */
 					if (clst == 1) return FR_INT_ERR;			/* Internal error */
 					if (clst == 0xFFFFFFFF) return FR_DISK_ERR;	/* Disk error */
@@ -1545,13 +1553,13 @@ FRESULT dir_next (	/* FR_OK(0):succeeded, FR_NO_FILE:End of table, FR_DENIED:Cou
 
 #if !_FS_READONLY
 /*-----------------------------------------------------------------------*/
-/* Directory handling - Reserve a block of directory entries             */
+/* Directory handling - Reserve a block of directory entries   目录处理 - 保留目录条目块          */
 /*-----------------------------------------------------------------------*/
 
 static
 FRESULT dir_alloc (	/* FR_OK(0):succeeded, !=0:error */
 	DIR* dp,		/* Pointer to the directory object */
-	UINT nent		/* Number of contiguous entries to allocate */
+	UINT nent		/* Number of contiguous entries to allocate 要分配的连续条目数*/
 )
 {
 	FRESULT res;
@@ -1570,11 +1578,14 @@ FRESULT dir_alloc (	/* FR_OK(0):succeeded, !=0:error */
 #else
 			if (dp->dir[DIR_Name] == DDEM || dp->dir[DIR_Name] == 0) {
 #endif
-				if (++n == nent) break;	/* A block of contiguous free entries is found */
+				if (++n == nent) break;	/* A block of contiguous free entries is found找到nent个连续的32字节记录区 */
 			} else {
-				n = 0;					/* Not a blank entry. Restart to search */
+				n = 0;					/* Not a blank entry. Restart to search当没有找和nent的连续区时，则重新再找 */
 			}
 			res = dir_next(dp, 1);
+			//一直向后偏移一个记录项，第二参数为1，表示在查找该目录中的空闲连续记录块时，如果找到
+			//目录最后都没有找到理想长度的记录块时，就create_chain新增一个族，相当于扩增目录文件的
+			//存储族，然后在新增的族中取分配一个记录块空间
 		} while (res == FR_OK);	/* Next entry with table stretch enabled */
 	}
 
@@ -2137,7 +2148,7 @@ FRESULT dir_read (
 					if (c & LLEF) {			/* Is it start of an LFN sequence? */
 						sum = dp->dir[LDIR_Chksum];
 						c &= (BYTE)~LLEF; ord = c;
-						dp->blk_ofs = dp->dptr;
+						dp->blk_ofs = dp->dptr;//检测到该记录是长文件目录的起始点，则记录该指针，留到读的时候有用
 					}
 					/* Check LFN validity and capture it */
 					ord = (c == ord && sum == dp->dir[LDIR_Chksum] && pick_lfn(fs->lfnbuf, dp->dir)) ? ord - 1 : 0xFF;
@@ -2361,9 +2372,11 @@ FRESULT dir_remove (	/* FR_OK:Succeeded, FR_DISK_ERR:A disk error */
 	FRESULT res;
 	FATFS *fs = dp->obj.fs;
 #if _USE_LFN != 0	/* LFN configuration */
-	DWORD last = dp->dptr;
+	DWORD last = dp->dptr;//查找该路径是，该指针指向短文件名条目的起始地址
 
 	res = (dp->blk_ofs == 0xFFFFFFFF) ? FR_OK : dir_sdi(dp, dp->blk_ofs);	/* Goto top of the entry block if LFN is exist */
+	//dir_sdi(dp, dp->blk_ofs)是将该文件夹的操作指针移动到长文件名条目的低地址位置，因为他是倒序排列
+	//的，然后分别把每个条目的首字节修改为0xE5，代表使用但删除了
 	if (res == FR_OK) {
 		do {
 			res = move_window(fs, dp->sect);
@@ -2382,10 +2395,10 @@ FRESULT dir_remove (	/* FR_OK:Succeeded, FR_DISK_ERR:A disk error */
 	}
 #else			/* Non LFN configuration */
 
-	res = move_window(fs, dp->sect);
+	res = move_window(fs, dp->sect);//如果是短文件名的，则直接修改32字节条目中的首字节改为0xe5即可
 	if (res == FR_OK) {
-		dp->dir[DIR_Name] = DDEM;
-		fs->wflag = 1;
+		dp->dir[DIR_Name] = DDEM;//写入0xE5,曾经使用过的标志
+		fs->wflag = 1;//下次在调用move_window去读取当前扇区时会把旧的扇区信息写入对应储存介质中
 	}
 #endif
 
@@ -2504,7 +2517,7 @@ void get_fileinfo (		/* No return code */
 /*-----------------------------------------------------------------------*/
 
 static
-WCHAR get_achar (		/* Get a character and advances ptr 1 or 2 */
+WCHAR get_achar (		/* Get a character and advances ptr 1 or 2 根据输入字符指针返回字符*/
 	const TCHAR** ptr	/* Pointer to pointer to the SBCS/DBCS/Unicode string */
 )
 {
@@ -4489,11 +4502,12 @@ FRESULT f_unlink (
 
 
 	/* Get logical drive */
-	res = find_volume(&path, &fs, FA_WRITE);
-	dj.obj.fs = fs;
+	res = find_volume(&path, &fs, FA_WRITE);//根据路径来判断是属于哪个系统管理的，并返回该文件系统对象结构
+	dj.obj.fs = fs;//先往文件夹对象里面初始化一个文件系统对象
 	if (res == FR_OK) {
-		INIT_NAMBUF(fs);
+		INIT_NAMBUF(fs);//初始化长文件名buff,根据配置可以选择堆，栈以及全局buff,将该宏展开
 		res = follow_path(&dj, path);		/* Follow the file path */
+		//follow_path会根据路径来填写父目录dj文件夹的相关信息
 		if (_FS_RPATH && res == FR_OK && (dj.fn[NSFLAG] & NS_DOT)) {
 			res = FR_INVALID_NAME;			/* Cannot remove dot entry */
 		}
@@ -4518,12 +4532,12 @@ FRESULT f_unlink (
 				} else
 #endif
 				{
-					dclst = ld_clust(fs, dj.dir);
+					dclst = ld_clust(fs, dj.dir);//获取该路径文件或目录的起始族号
 				}
-				if (dj.obj.attr & AM_DIR) {			/* Is it a sub-directory ? */
+				if (dj.obj.attr & AM_DIR) {			/* Is it a sub-directory 它是一个子目录? */
 #if _FS_RPATH != 0
 					if (dclst == fs->cdir) {		 		/* Is it the current directory? */
-						res = FR_DENIED;
+						res = FR_DENIED;//不能删除当前所在目录
 					} else
 #endif
 					{
@@ -4535,11 +4549,11 @@ FRESULT f_unlink (
 							sdj.obj.stat = obj.stat;
 						}
 #endif
-						res = dir_sdi(&sdj, 0);
+						res = dir_sdi(&sdj, 0);//定位到该目录的首地址条目
 						if (res == FR_OK) {
-							res = dir_read(&sdj, 0);			/* Read an item */
-							if (res == FR_OK) res = FR_DENIED;	/* Not empty? */
-							if (res == FR_NO_FILE) res = FR_OK;	/* Empty? */
+							res = dir_read(&sdj, 0);			/* Read an item 读目录信息*/
+							if (res == FR_OK) res = FR_DENIED;	/* Not empty? 不能删除一个非空文件*/
+							if (res == FR_NO_FILE) res = FR_OK;	/* Empty?只能删除空文件 */
 						}
 					}
 				}
