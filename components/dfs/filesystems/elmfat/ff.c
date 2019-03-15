@@ -450,6 +450,7 @@ typedef struct {
 #define	FSI_Free_Count		488		/* FAT32 FSI: Number of free clusters (DWORD) */
 #define	FSI_Nxt_Free		492		/* FAT32 FSI: Last allocated cluster (DWORD) */
 
+//分区的组织结构宏定义，最多支持4个分区，每个分区有16的字节来描述
 #define MBR_Table			446		/* MBR: Offset of partition table in the MBR */
 #define	SZ_PTE				16		/* MBR: Size of a partition table entry */
 #define PTE_Boot			0		/* MBR PTE: Boot indicator */
@@ -2978,18 +2979,21 @@ FRESULT find_volume (	/* FR_OK(0): successful, !=0: any error occurred */
 
 	/* Get logical drive number */
 	*rfs = 0;
-	vol = get_ldnumber(path);
+	vol = get_ldnumber(path);//我理解为根据路径找盘符，找第一个数字
 	if (vol < 0) return FR_INVALID_DRIVE;
 
 	/* Check if the file system object is valid or not */
+	//该fs是获取了f_mount中已经malloc好了的一块fatfs类型的区间，之前已经赋值给了FatFs[vol];
+	//现在又通过vol驱动好来获取他，如果该指针为空，代表了该路径是不可用的，盘符不存在
 	fs = FatFs[vol];					/* Get pointer to the file system object */
 	if (!fs) return FR_NOT_ENABLED;		/* Is the file system object available? */
-
+    //锁住该当前系统，避免其他进程去修改，如果是定义为可重入的，则去获取互斥信号量，等待超时
+    //如果是不可重入的，则该宏相当于空函数
 	ENTER_FF(fs);						/* Lock the volume */
 	*rfs = fs;							/* Return pointer to the file system object */
 
 	mode &= (BYTE)~FA_READ;				/* Desired access mode, write access or not */
-	if (fs->fs_type) {					/* If the volume has been mounted */
+	if (fs->fs_type) {					/* If the volume has been mounted 非0表示已经挂载了该系统*/
 		stat = disk_status(fs->drv);
 		if (!(stat & STA_NOINIT)) {		/* and the physical drive is kept initialized */
 			if (!_FS_READONLY && mode && (stat & STA_PROTECT)) {	/* Check write protection if needed */
@@ -2997,15 +3001,17 @@ FRESULT find_volume (	/* FR_OK(0): successful, !=0: any error occurred */
 			}
 			return FR_OK;				/* The file system object is valid */
 		}
+		//一般只要系统已经挂载了，并且物理驱动已经初始化了，那在这里就已经返回了
 	}
-
+    //能跑到下面的代码就是在读第一扇区的信息来关联fatfs系统
 	/* The file system object is not valid. */
 	/* Following code attempts to mount the volume. (analyze BPB and initialize the fs object) */
 
 	fs->fs_type = 0;					/* Clear the file system object */
 	fs->drv = LD2PD(vol);				/* Bind the logical drive and a physical drive */
-	stat = disk_initialize(fs->drv);	/* Initialize the physical drive */
+	stat = disk_initialize(fs->drv);	/* Initialize the physical drive 该函数是空的，估计上电已经初始化了该硬盘*/
 	if (stat & STA_NOINIT) { 			/* Check if the initialization succeeded */
+	    //逻辑上物理设备没有初始化时不允许关联到系统的
 		return FR_NOT_READY;			/* Failed to initialize due to no medium or hard error */
 	}
 	if (!_FS_READONLY && mode && (stat & STA_PROTECT)) { /* Check disk write protection if needed */
@@ -3017,9 +3023,10 @@ FRESULT find_volume (	/* FR_OK(0): successful, !=0: any error occurred */
 #endif
 	/* Find an FAT partition on the drive. Supports only generic partitioning, FDISK and SFD. */
 	bsect = 0;
+	//先检查该物理设备是否是fatfs系统格式的
 	fmt = check_fs(fs, bsect);			/* Load sector 0 and check if it is an FAT-VBR as SFD */
 	if (fmt == 2 || (fmt < 2 && LD2PT(vol) != 0)) {	/* Not an FAT-VBR or forced partition number */
-		for (i = 0; i < 4; i++) {			/* Get partition offset */
+		for (i = 0; i < 4; i++) {			/* Get partition offset 最多支持4个分区*/
 			pt = fs->win + (MBR_Table + i * SZ_PTE);
 			br[i] = pt[PTE_System] ? ld_dword(pt + PTE_StLba) : 0;
 		}
@@ -3027,15 +3034,17 @@ FRESULT find_volume (	/* FR_OK(0): successful, !=0: any error occurred */
 		if (i) i--;
 		do {								/* Find an FAT volume */
 			bsect = br[i];
-			fmt = bsect ? check_fs(fs, bsect) : 3;	/* Check the partition */
+			fmt = bsect ? check_fs(fs, bsect) : 3;	/* Check the partition 每个分区都要一个引导区，记录着该分区的所有资源情况*/
 		} while (!LD2PT(vol) && fmt >= 2 && ++i < 4);
 	}
 	if (fmt == 4) return FR_DISK_ERR;		/* An error occured in the disk I/O layer */
+	//检测到物理驱动错误
 	if (fmt >= 2) return FR_NO_FILESYSTEM;	/* No FAT volume is found */
+	//发现该硬盘不是fat文件系统格式，不能被fatfs管理
 
 	/* An FAT volume is found. Following code initializes the file system object */
 
-#if _FS_EXFAT
+#if _FS_EXFAT//
 	if (fmt == 1) {
 		QWORD maxlba;
 
@@ -3084,11 +3093,11 @@ FRESULT find_volume (	/* FR_OK(0): successful, !=0: any error occurred */
 	{
 		if (ld_word(fs->win + BPB_BytsPerSec) != SS(fs)) return FR_NO_FILESYSTEM;	/* (BPB_BytsPerSec must be equal to the physical sector size) */
 
-		fasize = ld_word(fs->win + BPB_FATSz16);			/* Number of sectors per FAT */
+		fasize = ld_word(fs->win + BPB_FATSz16);			/* Number of sectors per FAT 每个fat表总共占用了多少扇区*/
 		if (fasize == 0) fasize = ld_dword(fs->win + BPB_FATSz32);
-		fs->fsize = fasize;
+		fs->fsize = fasize;//填充到fs
 
-		fs->n_fats = fs->win[BPB_NumFATs];					/* Number of FATs */
+		fs->n_fats = fs->win[BPB_NumFATs];					/* Number of FATs 有多少个fat表，一般有两个，FAT1为常规，FAT2为备份FAT1的*/
 		if (fs->n_fats != 1 && fs->n_fats != 2) return FR_NO_FILESYSTEM;	/* (Must be 1 or 2) */
 		fasize *= fs->n_fats;								/* Number of sectors for FAT area */
 
@@ -3235,18 +3244,18 @@ FRESULT f_mount (
 
 	if (cfs) {
 #if _FS_LOCK != 0
-		clear_lock(cfs);
+		clear_lock(cfs);//去掉属于该老系统的文件锁
 #endif
 #if _FS_REENTRANT						/* Discard sync object of the current volume */
-		if (!ff_del_syncobj(cfs->sobj)) return FR_INT_ERR;
+		if (!ff_del_syncobj(cfs->sobj)) return FR_INT_ERR;//删除老的系统的互斥变量，节省空间
 #endif
 		cfs->fs_type = 0;				/* Clear old fs object */
 	}
 
 	if (fs) {
-		fs->fs_type = 0;				/* Clear new fs object */
+		fs->fs_type = 0;				/* Clear new fs object *///应该是表明还没有挂载的
 #if _FS_REENTRANT						/* Create sync object for the new volume */
-		if (!ff_cre_syncobj((BYTE)vol, &fs->sobj)) return FR_INT_ERR;
+		if (!ff_cre_syncobj((BYTE)vol, &fs->sobj)) return FR_INT_ERR;//创建一个该文件系统的互斥变量
 #endif
 	}
 	FatFs[vol] = fs;					/* Register new fs object */
@@ -4801,7 +4810,7 @@ FRESULT f_chmod (
 		res = follow_path(&dj, path);	/* Follow the file path */
 		if (res == FR_OK && (dj.fn[NSFLAG] & (NS_DOT | NS_NONAME))) res = FR_INVALID_NAME;	/* Check object validity */
 		if (res == FR_OK) {
-			mask &= AM_RDO|AM_HID|AM_SYS|AM_ARC;	/* Valid attribute mask */
+			mask &= AM_RDO|AM_HID|AM_SYS|AM_ARC;	/* Valid attribute mask 是的mask中只包含这几种类型中的一种 */
 #if _FS_EXFAT
 			if (fs->fs_type == FS_EXFAT) {
 				fs->dirbuf[XDIR_Attr] = (attr & mask) | (fs->dirbuf[XDIR_Attr] & (BYTE)~mask);	/* Apply attribute change */

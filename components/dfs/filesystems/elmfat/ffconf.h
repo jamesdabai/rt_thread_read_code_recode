@@ -184,6 +184,12 @@
 /  When multi-partition is enabled (1), each logical drive number can be bound to
 /  arbitrary physical drive and partition listed in the VolToPart[]. Also f_fdisk()
 /  funciton will be available. */
+/*此选项可在物理驱动器上切换对多分区的支持。
+/默认情况下（0），每个逻辑驱动器号绑定到同一物理驱动器
+/ number，只安装物理驱动器上的FAT卷。
+/启用多分区（1）时，可以绑定每个逻辑驱动器号
+/ VolToPart []中列出的/任意物理驱动器和分区。 还有f_fdisk（）
+/ funciton将可用。*/
 
 
 #define	_MIN_SS		512
