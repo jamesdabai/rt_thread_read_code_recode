@@ -2412,7 +2412,7 @@ FRESULT dir_remove (	/* FR_OK:Succeeded, FR_DISK_ERR:A disk error */
 
 #if _FS_MINIMIZE <= 1 || _FS_RPATH >= 2
 /*-----------------------------------------------------------------------*/
-/* Get file information from directory entry                             */
+/* Get file information from directory entry从目录记录32直接中获取他管理的文件信息                             */
 /*-----------------------------------------------------------------------*/
 
 static
@@ -2958,7 +2958,7 @@ BYTE check_fs (	/* 0:FAT, 1:exFAT, 2:Valid BS but not FAT, 3:Not a BS, 4:Disk er
 
 
 /*-----------------------------------------------------------------------*/
-/* Find logical drive and check if the volume is mounted                 */
+/* Find logical drive and check if the volume is mounted根据路径来找fs系统的的*/
 /*-----------------------------------------------------------------------*/
 
 static
@@ -3110,55 +3110,65 @@ FRESULT find_volume (	/* FR_OK(0): successful, !=0: any error occurred */
 		tsect = ld_word(fs->win + BPB_TotSec16);			/* Number of sectors on the volume */
 		if (tsect == 0) tsect = ld_dword(fs->win + BPB_TotSec32);
 
-		nrsv = ld_word(fs->win + BPB_RsvdSecCnt);			/* Number of reserved sectors */
+		nrsv = ld_word(fs->win + BPB_RsvdSecCnt);			/* 保留扇区Number of reserved sectors */
 		if (nrsv == 0) return FR_NO_FILESYSTEM;				/* (Must not be 0) */
 
 		/* Determine the FAT sub type */
+		//保留扇区+两个fat表+root目录所占的扇区总数
 		sysect = nrsv + fasize + fs->n_rootdir / (SS(fs) / SZDIRE);	/* RSV + FAT + DIR */
 		if (tsect < sysect) return FR_NO_FILESYSTEM;		/* (Invalid volume size) */
-		nclst = (tsect - sysect) / fs->csize;				/* Number of clusters */
+		nclst = (tsect - sysect) / fs->csize;				/* Number of clusters 剩下的扇区还不足一个族也是不行的*/
 		if (nclst == 0) return FR_NO_FILESYSTEM;			/* (Invalid volume size) */
 		fmt = FS_FAT32;
-		if (nclst <= MAX_FAT16) fmt = FS_FAT16;
+		if (nclst <= MAX_FAT16) fmt = FS_FAT16;//如果族数小于16类型的最大值，则返回的是16的类型
 		if (nclst <= MAX_FAT12) fmt = FS_FAT12;
 
 		/* Boundaries and Limits */
-		fs->n_fatent = nclst + 2;							/* Number of FAT entries */
+		fs->n_fatent = nclst + 2;							/* Number of FAT entries fat的记录条数等于族数加2*/
 		fs->volbase = bsect;								/* Volume start sector */
-		fs->fatbase = bsect + nrsv; 						/* FAT start sector */
-		fs->database = bsect + sysect;						/* Data start sector */
+		//以上变量，是卷标的起始扇区，当没有分区时，该值为0扇区
+		//当有分区时，该值为该分区的起始扇区处，反正该区是MBR，主引导区
+		//都储存着所管分区的所有资源信息
+		fs->fatbase = bsect + nrsv; 						/* FAT start sector 第一个fat表的起始扇区*/
+		fs->database = bsect + sysect;						/* Data start sector储存数据的起始扇区， */
 		if (fmt == FS_FAT32) {
 			if (ld_word(fs->win + BPB_FSVer32) != 0) return FR_NO_FILESYSTEM;	/* (Must be FAT32 revision 0.0) */
-			if (fs->n_rootdir) return FR_NO_FILESYSTEM;		/* (BPB_RootEntCnt must be 0) */
-			fs->dirbase = ld_dword(fs->win + BPB_RootClus32);	/* Root directory start cluster */
+			if (fs->n_rootdir) return FR_NO_FILESYSTEM;		/* 在32类型中该数必须为0，规定好了的(BPB_RootEntCnt must be 0) */
+			fs->dirbase = ld_dword(fs->win + BPB_RootClus32);	/* root目录起始族号，一般为2号族Root directory start cluster */
 			szbfat = fs->n_fatent * 4;						/* (Needed FAT size) */
 		} else {
-			if (fs->n_rootdir == 0)	return FR_NO_FILESYSTEM;/* (BPB_RootEntCnt must not be 0) */
+			if (fs->n_rootdir == 0)	return FR_NO_FILESYSTEM;/* 如果不是32类型的系统，那该值必须非0(BPB_RootEntCnt must not be 0) */
 			fs->dirbase = fs->fatbase + fasize;				/* Root directory start sector */
 			szbfat = (fmt == FS_FAT16) ?					/* (Needed FAT size) */
 				fs->n_fatent * 2 : fs->n_fatent * 3 / 2 + (fs->n_fatent & 1);
 		}
 		if (fs->fsize < (szbfat + (SS(fs) - 1)) / SS(fs)) return FR_NO_FILESYSTEM;	/* (BPB_FATSz must not be less than the size needed) */
 
-#if !_FS_READONLY
+#if !_FS_READONLY//如果是只读模式，则不需要知道空闲和最后族了，则不会编译该部分
 		/* Get FSINFO if available */
+		//该信息是储存在第一个扇区的，512个字节中只用到了8个字节，其中4个字节记录了剩余族数，
+		//另外4字节储存了最近分配的族号，我想应该是用来做平衡处理用的
+		//第一次挂载的时候初始化为fffffff,后续再同步FSI的时候，会将真实的值写入其中
 		fs->last_clst = fs->free_clst = 0xFFFFFFFF;		/* Initialize cluster allocation information */
 		fs->fsi_flag = 0x80;
 #if (_FS_NOFSINFO & 3) != 3
 		if (fmt == FS_FAT32				/* Enable FSINFO only if FAT32 and BPB_FSInfo32 == 1 */
 			&& ld_word(fs->win + BPB_FSInfo32) == 1
 			&& move_window(fs, bsect + 1) == FR_OK)
-		{
+		{//move_window是在将第一扇区的512字节读到win[]中
 			fs->fsi_flag = 0;
 			if (ld_word(fs->win + BS_55AA) == 0xAA55	/* Load FSINFO data if available */
 				&& ld_dword(fs->win + FSI_LeadSig) == 0x41615252
 				&& ld_dword(fs->win + FSI_StrucSig) == 0x61417272)
-			{
+			{//上面的if判断是在检测该扇区是否符合信息扇区的格式
 #if (_FS_NOFSINFO & 1) == 0
 				fs->free_clst = ld_dword(fs->win + FSI_Free_Count);
+				//如果配置相信硬盘中记录的信息，则填入空闲族，如果配置的不信任则
+				//系统会扫描整个fat表，去找有多少空闲族
 #endif
 #if (_FS_NOFSINFO & 2) == 0
 				fs->last_clst = ld_dword(fs->win + FSI_Nxt_Free);
+				//信任则填入，暂时还没找到如果不信任系统会如何动作
 #endif
 			}
 		}
@@ -3166,16 +3176,16 @@ FRESULT find_volume (	/* FR_OK(0): successful, !=0: any error occurred */
 #endif	/* !_FS_READONLY */
 	}
 
-	fs->fs_type = fmt;	/* FAT sub-type */
-	fs->id = ++Fsid;	/* File system mount ID */
+	fs->fs_type = fmt;	/* FAT sub-type 填入系统所属类型*/
+	fs->id = ++Fsid;	/* File system mount ID Fsid都没有初始化了，为啥加，是默认初始化为0？？？*/
 #if _USE_LFN == 1
-	fs->lfnbuf = LfnBuf;	/* Static LFN working buffer */
+	fs->lfnbuf = LfnBuf;	/* Static LFN working buffer 如果定义的是静态的长文件名，则在这里赋值指针*/
 #if _FS_EXFAT
 	fs->dirbuf = DirBuf;	/* Static directory block working buuffer */
 #endif
 #endif
 #if _FS_RPATH != 0
-	fs->cdir = 0;		/* Initialize current directory */
+	fs->cdir = 0;		/* Initialize current directory 当前工作目录，0为root目录*/
 #endif
 #if _FS_LOCK != 0		/* Clear file lock semaphores */
 	clear_lock(fs);
@@ -3262,7 +3272,7 @@ FRESULT f_mount (
 
 	if (!fs || opt != 1) return FR_OK;	/* Do not mount now, it will be mounted later */
 
-	res = find_volume(&path, &fs, 0);	/* Force mounted the volume */
+	res = find_volume(&path, &fs, 0);	/* Force mounted the volume真正挂载系统的是该函数 */
 	LEAVE_FF(fs, res);
 }
 
@@ -3292,15 +3302,19 @@ FRESULT f_open (
 	if (!fp) return FR_INVALID_OBJECT;
 
 	/* Get logical drive */
+	//先来判断打开的模式，如果系统配置了只读模式，则模式这能选取只读部分
+	//如果非只读，则模式mode要过滤掉错误状态，只去合法模式当中的标识位
 	mode &= _FS_READONLY ? FA_READ : FA_READ | FA_WRITE | FA_CREATE_ALWAYS | FA_CREATE_NEW | FA_OPEN_ALWAYS | FA_OPEN_APPEND | FA_SEEKEND;
-	res = find_volume(&path, &fs, mode);
+	res = find_volume(&path, &fs, mode);//通过路径最开始的部分来找管家
+	//通过路径来找到该路径的FAT系统管家，赋值给fs指针，另外再校验下读的合法性
 	if (res == FR_OK) {
 		dj.obj.fs = fs;
 		INIT_NAMBUF(fs);
+		//跟踪该路径，并将该路径下的文件或子目录的上一层目录对象赋值给dj
 		res = follow_path(&dj, path);	/* Follow the file path */
 #if !_FS_READONLY	/* R/W configuration */
 		if (res == FR_OK) {
-			if (dj.fn[NSFLAG] & NS_NONAME) {	/* Origin directory itself? */
+			if (dj.fn[NSFLAG] & NS_NONAME) {	/* Origin directory itself? 没找到该路径文件*/
 				res = FR_INVALID_NAME;
 			}
 #if _FS_LOCK != 0
@@ -3311,17 +3325,21 @@ FRESULT f_open (
 		}
 		/* Create or Open a file */
 		if (mode & (FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW)) {
-			if (res != FR_OK) {					/* No file, create new */
+			if (res != FR_OK) {					/* No file, create new 么有找到文件*/
 				if (res == FR_NO_FILE)			/* There is no file to open, create a new entry */
 #if _FS_LOCK != 0
+                    //定义文件锁时，如果没有多余的文件锁可以用了，则返回错误，说明同时打开的文件较多了
 					res = enq_lock() ? dir_register(&dj) : FR_TOO_MANY_OPEN_FILES;
 #else
 					res = dir_register(&dj);
+					//为该新建文件在dj目录下申请了一个记录，并填写了对应的信息
 #endif
 				mode |= FA_CREATE_ALWAYS;		/* File is created */
+				//此刻文件记录已经被建立
 			}
-			else {								/* Any object is already existing */
+			else {								/* Any object is already existing 所打开文件已经存在*/
 				if (dj.obj.attr & (AM_RDO | AM_DIR)) {	/* Cannot overwrite it (R/O or DIR) */
+				//如果该目录对象的属性是只读或者改对象是子目录，则不行
 					res = FR_DENIED;
 				} else {
 					if (mode & FA_CREATE_NEW) res = FR_EXIST;	/* Cannot create as new file */
@@ -3359,16 +3377,19 @@ FRESULT f_open (
 					st_dword(dj.dir + DIR_ModTime, dw);	/* Set modified time */
 					dj.dir[DIR_Attr] = AM_ARC;			/* Reset attribute */
 					cl = ld_clust(fs, dj.dir);			/* Get cluster chain */
-					st_clust(fs, dj.dir, 0);			/* Reset file allocation info */
-					st_dword(dj.dir + DIR_FileSize, 0);
+					st_clust(fs, dj.dir, 0);			/* Reset file allocation info 获取原本文件的起始族号*/
+					st_dword(dj.dir + DIR_FileSize, 0);//修改文件大小为0
 					fs->wflag = 1;
 
 					if (cl) {							/* Remove the cluster chain if exist */
-						dw = fs->winsect;
-						res = remove_chain(&dj.obj, cl, 0);
+						dw = fs->winsect;//先保存该正在存在目录的扇区，便于后面第3行的将该扇区的数据恢复
+						                 //到win[]中，方便操作，该备份作用是因为remove_chain函数中会使用到win[]
+						                 //空间，破坏了原有的额数据
+						res = remove_chain(&dj.obj, cl, 0);//移除原有的族链从cl开始移除fat表记录
 						if (res == FR_OK) {
-							res = move_window(fs, dw);
+							res = move_window(fs, dw);//恢复原有的扇区数据
 							fs->last_clst = cl - 1;		/* Reuse the cluster hole */
+							//将该扇区储存在最近使用扇区记录中，是当下次找族时，可以很快找到
 						}
 					}
 				}
@@ -3377,10 +3398,10 @@ FRESULT f_open (
 		else {	/* Open an existing file */
 			if (res == FR_OK) {					/* Following succeeded */
 				if (dj.obj.attr & AM_DIR) {		/* It is a directory */
-					res = FR_NO_FILE;
+					res = FR_NO_FILE;//不能打开子目录
 				} else {
 					if ((mode & FA_WRITE) && (dj.obj.attr & AM_RDO)) { /* R/O violation */
-						res = FR_DENIED;
+						res = FR_DENIED;//如果打开模式中有写权限了，但是该文件的属性是只读的，则返回访问错误
 					}
 				}
 			}
@@ -3388,8 +3409,8 @@ FRESULT f_open (
 		if (res == FR_OK) {
 			if (mode & FA_CREATE_ALWAYS)		/* Set file change flag if created or overwritten */
 				mode |= FA_MODIFIED;
-			fp->dir_sect = fs->winsect;			/* Pointer to the directory entry */
-			fp->dir_ptr = dj.dir;
+			fp->dir_sect = fs->winsect;			/* Pointer to the directory entry 该文件的目录入口扇区*/
+			fp->dir_ptr = dj.dir;//该文件的记录指针，读出目录入口扇区的数据，然后根据该指针就可以直接操作该记录了
 #if _FS_LOCK != 0
 			fp->obj.lockid = inc_lock(&dj, (mode & ~FA_READ) ? 1 : 0);
 			if (!fp->obj.lockid) res = FR_INT_ERR;
@@ -3419,8 +3440,8 @@ FRESULT f_open (
 			} else
 #endif
 			{
-				fp->obj.sclust = ld_clust(fs, dj.dir);				/* Get allocation info */
-				fp->obj.objsize = ld_dword(dj.dir + DIR_FileSize);
+				fp->obj.sclust = ld_clust(fs, dj.dir);				/* Get allscation info 该文件的起始族*/
+				fp->obj.objsize = ld_dword(dj.dir + DIR_FileSize);//获取文件长度大小
 			}
 #if _USE_FASTSEEK
 			fp->cltbl = 0;			/* Disable fast seek mode */
@@ -3498,6 +3519,7 @@ FRESULT f_read (
 
 	for ( ;  btr;								/* Repeat until all data read */
 		rbuff += rcnt, fp->fptr += rcnt, *br += rcnt, btr -= rcnt) {
+		//
 		if (fp->fptr % SS(fs) == 0) {			/* On the sector boundary? */
 			csect = (UINT)(fp->fptr / SS(fs) & (fs->csize - 1));	/* Sector offset in the cluster */
 			if (csect == 0) {					/* On the cluster boundary? */
@@ -3558,8 +3580,10 @@ FRESULT f_read (
 #if _FS_TINY
 		if (move_window(fs, fp->sect) != FR_OK) ABORT(fs, FR_DISK_ERR);	/* Move sector window */
 		mem_cpy(rbuff, fs->win + fp->fptr % SS(fs), rcnt);	/* Extract partial sector */
+		//从全局win[]中获取磁盘数据，这是迷你fat
 #else
 		mem_cpy(rbuff, fp->buf + fp->fptr % SS(fs), rcnt);	/* Extract partial sector */
+		//为每个文件分配了一个512的暂存区，从中获取
 #endif
 	}
 

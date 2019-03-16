@@ -89,9 +89,14 @@ typedef DWORD FSIZE_t;
 
 
 /* File system object structure (FATFS) */
+/* Filesystem type (FATFS.fs_type) */
+//#define FS_FAT12	1 填入fs_type中的数值的宏定义
+//#define FS_FAT16	2
+//#define FS_FAT32	3
+//#define FS_EXFAT	4
 
 typedef struct {
-	BYTE	fs_type;		/* File system type (0:N/A) */
+	BYTE	fs_type;		/* File system type (0:N/A)该值是用来判断该系统是FAT12/FAT16/FAT32/EXFAT中哪一种 */
 	BYTE	drv;			/* Physical drive number */
 	BYTE	n_fats;			/* Number of FATs (1 or 2) */
 	BYTE	wflag;			/* win[] flag (b0:dirty) */
@@ -330,13 +335,13 @@ int ff_del_syncobj (_SYNC_t sobj);				/* Delete a sync object */
 
 
 /* File access mode and open method flags (3rd argument of f_open) */
-#define	FA_READ				0x01
-#define	FA_WRITE			0x02
-#define	FA_OPEN_EXISTING	0x00
-#define	FA_CREATE_NEW		0x04
-#define	FA_CREATE_ALWAYS	0x08
-#define	FA_OPEN_ALWAYS		0x10
-#define	FA_OPEN_APPEND		0x30
+#define	FA_READ				0x01//只读
+#define	FA_WRITE			0x02//只写
+#define	FA_OPEN_EXISTING	0x00//只打开存在的文件，如果不存在则返回失败
+#define	FA_CREATE_NEW		0x04//创建新的文件，如果该文件存在，则返回错误
+#define	FA_CREATE_ALWAYS	0x08//创建新的文件，如果该文件存在，则覆盖该文件
+#define	FA_OPEN_ALWAYS		0x10//打开一个文件，如果存在，则打开，如果不存在，则新建一个文件
+#define	FA_OPEN_APPEND		0x30//打开一个文件，如果存在，则打开并把读写指针放在文件最后，如果不存在，则新建一个文件
 
 /* Fast seek controls (2nd argument of f_lseek) */
 #define CREATE_LINKMAP	((FSIZE_t)0 - 1)
