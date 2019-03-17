@@ -3444,8 +3444,9 @@ FRESULT f_open (
 				fp->obj.objsize = ld_dword(dj.dir + DIR_FileSize);//获取文件长度大小
 			}
 #if _USE_FASTSEEK
-			fp->cltbl = 0;			/* Disable fast seek mode */
+			fp->cltbl = 0;			/* Disable fast seek mode *///该参数目前还不太明白
 #endif
+            //初始化该文件管理数据
 			fp->obj.fs = fs;	 	/* Validate the file object */
 			fp->obj.id = fs->id;
 			fp->flag = mode;		/* Set file access mode */
@@ -3456,23 +3457,25 @@ FRESULT f_open (
 #if !_FS_TINY
 			mem_set(fp->buf, 0, _MAX_SS);	/* Clear sector buffer */
 #endif
+            //如果需要打开文件后就将指针定位到文件最后
 			if ((mode & FA_SEEKEND) && fp->obj.objsize > 0) {	/* Seek to end of file if FA_OPEN_APPEND is specified */
 				fp->fptr = fp->obj.objsize;			/* Offset to seek */
 				bcs = (DWORD)fs->csize * SS(fs);	/* Cluster size in byte */
 				clst = fp->obj.sclust;				/* Follow the cluster chain */
 				for (ofs = fp->obj.objsize; res == FR_OK && ofs > bcs; ofs -= bcs) {
-					clst = get_fat(&fp->obj, clst);
+					clst = get_fat(&fp->obj, clst);//通过for循环的方式来在链表中找到数据最后的族号
 					if (clst <= 1) res = FR_INT_ERR;
 					if (clst == 0xFFFFFFFF) res = FR_DISK_ERR;
 				}
-				fp->clust = clst;
+				fp->clust = clst;//根据偏移量找到最后块数据所在的族号
 				if (res == FR_OK && ofs % SS(fs)) {	/* Fill sector buffer if not on the sector boundary */
-					if ((sc = clust2sect(fs, clst)) == 0) {
+					if ((sc = clust2sect(fs, clst)) == 0) {//从族找到该族的起始扇区号，方便后续根据偏移量再找到最后扇区的物理绝对扇区号
 						res = FR_INT_ERR;
 					} else {
-						fp->sect = sc + (DWORD)(ofs / SS(fs));
+						fp->sect = sc + (DWORD)(ofs / SS(fs));//从族里在找到最后数据所在扇区，sc是该族的起始扇区
 #if !_FS_TINY
 						if (disk_read(fs->drv, fp->buf, fp->sect, 1) != RES_OK) res = FR_DISK_ERR;
+						//并将当前扇区的所有512数据都读到文件buf中
 #endif
 					}
 				}
@@ -4380,7 +4383,7 @@ FRESULT f_stat (
 
 #if !_FS_READONLY
 /*-----------------------------------------------------------------------*/
-/* Get Number of Free Clusters                                           */
+/* Get Number of Free Clusters  //通过查找全部的fat表来看空闲族，数量                   */
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_getfree (
