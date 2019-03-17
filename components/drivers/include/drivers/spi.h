@@ -367,4 +367,37 @@ rt_err_t rt_qspi_send(struct rt_qspi_device *device, const void *send_buf, rt_si
 }
 #endif
 
+
+#include "sys.h"
+//////////////////////////////////////////////////////////////////////////////////	 
+
+//SPI 驱动代码	   
+//STM32F4工程模板-库函数版本
+//淘宝店铺：http://mcudev.taobao.com									  
+////////////////////////////////////////////////////////////////////////////////// 	
+ 	    													  
+void SPI1_Init(void);			 //初始化SPI1口
+void SPI1_SetSpeed(u8 SpeedSet); //设置SPI1速度   
+u8 SPI1_ReadWriteByte(u8 TxData);//SPI1总线读写一个字节
+		 
+struct stm32_spi_bus
+{
+    struct rt_spi_bus parent;
+    SPI_TypeDef * SPI;
+#ifdef SPI_USE_DMA
+    struct stm32_spi_dma *dma;
+#endif /* SPI_USE_DMA */
+};
+
+struct stm32_spi_cs
+{
+    GPIO_TypeDef * GPIOx;
+    uint16_t GPIO_Pin;
+};
+
+/* public function list */
+rt_err_t stm32_spi_register(SPI_TypeDef * SPI,
+                            struct stm32_spi_bus * stm32_spi,
+                            const char * spi_bus_name);
+
 #endif

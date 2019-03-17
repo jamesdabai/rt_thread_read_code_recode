@@ -19,12 +19,12 @@
 #include <rtdevice.h>
 
 /* UART GPIO define. */
-#define UART1_GPIO_TX       GPIO_Pin_6
-#define UART1_TX_PIN_SOURCE GPIO_PinSource6
-#define UART1_GPIO_RX       GPIO_Pin_7
-#define UART1_RX_PIN_SOURCE GPIO_PinSource7
-#define UART1_GPIO          GPIOB
-#define UART1_GPIO_RCC      RCC_AHB1Periph_GPIOB
+#define UART1_GPIO_TX       GPIO_Pin_9
+#define UART1_TX_PIN_SOURCE GPIO_PinSource9
+#define UART1_GPIO_RX       GPIO_Pin_10
+#define UART1_RX_PIN_SOURCE GPIO_PinSource10
+#define UART1_GPIO          GPIOA
+#define UART1_GPIO_RCC      RCC_AHB1Periph_GPIOA
 #define RCC_APBPeriph_UART1 RCC_APB2Periph_USART1
 
 #define UART2_GPIO_TX       GPIO_Pin_2
@@ -137,7 +137,7 @@ static rt_err_t stm32_control(struct rt_serial_device *serial, int cmd, void *ar
 
     RT_ASSERT(serial != RT_NULL);
     uart = (struct stm32_uart *)serial->parent.user_data;
-
+    rt_kprintf("stm32 %d\r\n",cmd);
     switch (cmd)
     {
     case RT_DEVICE_CTRL_CLR_INT:
@@ -148,6 +148,7 @@ static rt_err_t stm32_control(struct rt_serial_device *serial, int cmd, void *ar
         break;
     case RT_DEVICE_CTRL_SET_INT:
         /* enable rx irq */
+        rt_kprintf("´ò¿ªÖÐ¶Ï\r\n");
         UART_ENABLE_IRQ(uart->irq);
         /* enable interrupt */
         USART_ITConfig(uart->uart_device, USART_IT_RXNE, ENABLE);
@@ -191,7 +192,6 @@ static int stm32_getc(struct rt_serial_device *serial)
     {
         ch = uart->uart_device->DR & 0xff;
     }
-
     return ch;
 }
 
@@ -351,7 +351,6 @@ void USART1_IRQHandler(void)
 {
     /* enter interrupt */
     rt_interrupt_enter();
-
     uart_isr(&serial1);
 
     /* leave interrupt */

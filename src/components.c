@@ -180,6 +180,39 @@ void main_thread_entry(void *parameter)
 
     /* RT-Thread components initialization */
     rt_components_init();
+    
+    
+#if defined(RT_USING_W25QXX) && defined(RT_USING_DEVICE)
+
+    w25qxx_init("w25qxx","spi10");
+#endif  /* RT_USING_DFS */
+
+        /* Filesystem Initialization *///add by xiaqiyun 
+#if defined(RT_USING_DFS) && defined(RT_USING_DFS_ELMFAT)
+#if 1
+    /* mount sd card fat partition 1 as root directory */
+    if (dfs_mount("sd0", "/", "elm", 0, 0) == 0)
+    {
+        rt_kprintf("File System initialized!\n");
+    }
+    else
+        rt_kprintf("File System initialzation failed!\n");
+
+#else
+     /* mount sd card fat partition 1 as root directory */
+    if (dfs_mount("w25qxx", "/", "elm", 0, 0) == 0)//w25qxx空间太小，挂载不上
+    {
+        rt_kprintf("w25qxx File System initialized!\n");
+    }
+    else
+        rt_kprintf("w25qxx File System initialzation failed!\n");
+#endif
+
+
+    
+
+    
+#endif  /* RT_USING_DFS */
 
 #ifdef RT_USING_SMP
     rt_hw_secondary_cpu_up();
@@ -223,13 +256,10 @@ int rtthread_startup(void)
      * NOTE: please initialize heap inside board initialization.
      */
     rt_hw_board_init();
-
     /* show RT-Thread version */
     rt_show_version();
-
     /* timer system initialization */
     rt_system_timer_init();
-
     /* scheduler system initialization */
     rt_system_scheduler_init();
 

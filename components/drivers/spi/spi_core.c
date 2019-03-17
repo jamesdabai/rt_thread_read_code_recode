@@ -373,7 +373,7 @@ __exit:
     return index;
 }
 
-rt_err_t rt_spi_take_bus(struct rt_spi_device *device)
+rt_err_t rt_spi_take_bus(struct rt_spi_device *device)//该spi设备想要获得该SPI总线
 {
     rt_err_t result = RT_EOK;
 
@@ -415,7 +415,7 @@ rt_err_t rt_spi_take_bus(struct rt_spi_device *device)
     return result;
 }
 
-rt_err_t rt_spi_release_bus(struct rt_spi_device *device)
+rt_err_t rt_spi_release_bus(struct rt_spi_device *device)//该设备释放所拥有的SPI总线
 {
     RT_ASSERT(device != RT_NULL);
     RT_ASSERT(device->bus != RT_NULL);

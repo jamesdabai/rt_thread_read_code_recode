@@ -126,8 +126,8 @@ rt_device_t rt_device_find(const char *name)
          node != &(information->object_list);
          node  = node->next)
     {
-        object = rt_list_entry(node, struct rt_object, list);
-        if (rt_strncmp(object->name, name, RT_NAME_MAX) == 0)
+        object = rt_list_entry(node, struct rt_object, list);//通过链表中的指针反推包含该节点的结构体的地址xqy
+        if (rt_strncmp(object->name, name, RT_NAME_MAX) == 0)//得遍历整个对象列表去寻找该设备xqy
         {
             /* leave critical */
             if (rt_thread_self() != RT_NULL)

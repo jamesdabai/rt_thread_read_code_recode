@@ -223,6 +223,8 @@ int dfs_mount(const char   *device_name,
     char *fullpath = NULL;
     rt_device_t dev_id;
 
+    int ret = 0;
+
     /* open specific device */
     if (device_name == NULL)
     {
@@ -277,7 +279,6 @@ int dfs_mount(const char   *device_name,
         {
             rt_free(fullpath);
             rt_set_errno(-ENOTDIR);
-
             return -1;
         }
         dfs_file_close(&fd);
@@ -324,23 +325,21 @@ int dfs_mount(const char   *device_name,
             /* The underlaying device has error, clear the entry. */
             dfs_lock();
             memset(fs, 0, sizeof(struct dfs_filesystem));
-
             goto err1;
         }
     }
 
     /* call mount of this filesystem */
-    if ((*ops)->mount(fs, rwflag, data) < 0)
+    if ((ret = (*ops)->mount(fs, rwflag, data)) < 0)
     {
         /* close device */
         if (dev_id != NULL)
             rt_device_close(fs->dev_id);
-
+        rt_kprintf("ret==%d\r\n",ret);
         /* mount failed */
         dfs_lock();
         /* clear filesystem table entry */
         memset(fs, 0, sizeof(struct dfs_filesystem));
-
         goto err1;
     }
 
@@ -349,7 +348,6 @@ int dfs_mount(const char   *device_name,
 err1:
     dfs_unlock();
     rt_free(fullpath);
-
     return -1;
 }
 

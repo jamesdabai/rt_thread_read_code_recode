@@ -16,6 +16,14 @@ if GetDepend('RT_USING_LWIP'):
 # add gpio drivers.
 if GetDepend('RT_USING_PIN'):
     src += ['gpio.c']
+    
+# add sdio drivers.
+if GetDepend('RT_USING_SDIO'):
+    src += ['sdcard.c']
+    
+# addw25q16 drivers.
+if GetDepend('RT_USING_W25QXX'):
+    src += ['w25qxx.c']
 
 CPPPATH = [cwd]
 

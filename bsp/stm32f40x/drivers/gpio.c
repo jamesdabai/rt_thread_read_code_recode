@@ -16,7 +16,8 @@
 
 #define STM32_PIN_NUMBERS 100 //[48, 64, 100, 144 ]
 
-#define __STM32_PIN(index, rcc, gpio, gpio_index) { 0, RCC_##rcc##Periph_GPIO##gpio, GPIO##gpio, GPIO_Pin_##gpio_index}
+#define __STM32_PIN(index, rcc, gpio, gpio_index) { 0, RCC_##rcc##Periph_GPIO##gpio, GPIO##gpio, GPIO_Pin_##gpio_index}//
+//##表示把两个宏参数贴合在一起，而单个#的功能是将其后面的宏参数进行字符串化操作xqy
 #define __STM32_PIN_DEFAULT {-1, 0, 0, 0}
 
 #define ITEM_NUM(items) sizeof(items)/sizeof(items[0])

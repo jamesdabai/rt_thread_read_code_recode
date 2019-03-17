@@ -17,6 +17,9 @@
 #include "spi_flash.h"
 #include "spi_flash_w25qxx.h"
 
+
+
+
 #define FLASH_DEBUG
 
 #ifdef FLASH_DEBUG
@@ -91,10 +94,8 @@ static void w25qxx_wait_busy(void)
 static uint32_t w25qxx_read(uint32_t offset, uint8_t * buffer, uint32_t size)
 {
     uint8_t send_buffer[4];
-
     send_buffer[0] = CMD_WRDI;
     rt_spi_send(spi_flash_device.rt_spi_device, send_buffer, 1);
-
     send_buffer[0] = CMD_READ;
     send_buffer[1] = (uint8_t)(offset>>16);
     send_buffer[2] = (uint8_t)(offset>>8);
@@ -103,8 +104,8 @@ static uint32_t w25qxx_read(uint32_t offset, uint8_t * buffer, uint32_t size)
     rt_spi_send_then_recv(spi_flash_device.rt_spi_device,
                           send_buffer, 4,
                           buffer, size);
-
     return size;
+    
 }
 
 /** \brief write N page on [page]
@@ -162,6 +163,7 @@ uint32_t w25qxx_page_write(uint32_t page_addr, const uint8_t* buffer)
 /* RT-Thread device interface */
 static rt_err_t w25qxx_flash_init(rt_device_t dev)
 {
+    
     return RT_EOK;
 }
 
@@ -216,11 +218,13 @@ static rt_size_t w25qxx_flash_read(rt_device_t dev,
                                    rt_size_t size)
 {
     flash_lock((struct spi_flash_device *)dev);
+    //W25QXX_Read((u8 *)buffer,pos*512,512);
 
+    #if 1
     w25qxx_read(pos*spi_flash_device.geometry.bytes_per_sector,
-                buffer,
+                (u8 *)buffer,
                 size*spi_flash_device.geometry.bytes_per_sector);
-
+    #endif
     flash_unlock((struct spi_flash_device *)dev);
 
     return size;
@@ -239,8 +243,8 @@ static rt_size_t w25qxx_flash_write(rt_device_t dev,
 
     while(block--)
     {
-        w25qxx_page_write((pos + i)*spi_flash_device.geometry.bytes_per_sector,
-                          ptr);
+        w25qxx_page_write((pos + i)*spi_flash_device.geometry.bytes_per_sector,ptr);
+        //W25QXX_Write(ptr,(pos + i)*512,512);
         ptr += PAGE_SIZE;
         i++;
     }
@@ -317,7 +321,7 @@ rt_err_t w25qxx_init(const char * flash_device_name, const char * spi_device_nam
             return -RT_ENOSYS;
         }
 
-        spi_flash_device.geometry.bytes_per_sector = 4096;
+        spi_flash_device.geometry.bytes_per_sector = 512;
         spi_flash_device.geometry.block_size = 4096; /* block erase: 4k */
 
         /* get memory type and capacity */
@@ -371,6 +375,7 @@ rt_err_t w25qxx_init(const char * flash_device_name, const char * spi_device_nam
         }
     }
 
+    //W25QXX_Init();//xqy    
     /* register device */
     spi_flash_device.flash_device.type    = RT_Device_Class_Block;
 #ifdef RT_USING_DEVICE_OPS
@@ -391,3 +396,4 @@ rt_err_t w25qxx_init(const char * flash_device_name, const char * spi_device_nam
 
     return RT_EOK;
 }
+

@@ -12,11 +12,13 @@
 #define RT_THREAD_PRIORITY_MAX 32
 #define RT_TICK_PER_SECOND 100
 #define RT_USING_OVERFLOW_CHECK
-#define RT_USING_HOOK
-#define RT_USING_IDLE_HOOK
-#define RT_IDEL_HOOK_LIST_SIZE 4
 #define IDLE_THREAD_STACK_SIZE 1024
+#define RT_USING_TIMER_SOFT
+#define RT_TIMER_THREAD_PRIO 4
+#define RT_TIMER_THREAD_STACK_SIZE 512
 #define RT_DEBUG
+#define RT_DEBUG_INIT_CONFIG
+#define RT_DEBUG_INIT 1
 
 /* Inter-Thread communication */
 
@@ -31,14 +33,16 @@
 #define RT_USING_MEMPOOL
 #define RT_USING_MEMHEAP
 #define RT_USING_SMALL_MEM
+#define RT_USING_MEMTRACE
 #define RT_USING_HEAP
 
 /* Kernel Device Object */
 
 #define RT_USING_DEVICE
+#define RT_USING_INTERRUPT_INFO
 #define RT_USING_CONSOLE
 #define RT_CONSOLEBUF_SIZE 128
-#define RT_CONSOLE_DEVICE_NAME "uart2"
+#define RT_CONSOLE_DEVICE_NAME "uart1"
 #define RT_VER_NUM 0x40000
 #define ARCH_ARM
 #define ARCH_ARM_CORTEX_M
@@ -72,21 +76,22 @@
 /* Device virtual file system */
 
 #define RT_USING_DFS
-#define DFS_USING_WORKDIR
 #define DFS_FILESYSTEMS_MAX 2
 #define DFS_FILESYSTEM_TYPES_MAX 2
 #define DFS_FD_MAX 16
 #define RT_USING_DFS_ELMFAT
+#define DFS_USING_WORKDIR
+
 
 /* elm-chan's FatFs, Generic FAT Filesystem Module */
 
-#define RT_DFS_ELM_CODE_PAGE 437
+#define RT_DFS_ELM_CODE_PAGE 936
 #define RT_DFS_ELM_WORD_ACCESS
-#define RT_DFS_ELM_USE_LFN_0
-#define RT_DFS_ELM_USE_LFN 0
+#define RT_DFS_ELM_USE_LFN_3
+#define RT_DFS_ELM_USE_LFN 3
 #define RT_DFS_ELM_MAX_LFN 255
-#define RT_DFS_ELM_DRIVES 2
-#define RT_DFS_ELM_MAX_SECTOR_SIZE 512
+#define RT_DFS_ELM_DRIVES 3
+#define RT_DFS_ELM_MAX_SECTOR_SIZE 512*8
 #define RT_DFS_ELM_REENTRANT
 #define RT_USING_DFS_DEVFS
 
@@ -97,13 +102,10 @@
 #define RT_USING_SERIAL
 #define RT_SERIAL_USING_DMA
 #define RT_USING_PIN
-#define RT_USING_MTD_NOR
-#define RT_USING_SDIO
-#define RT_SDIO_STACK_SIZE 512
-#define RT_SDIO_THREAD_PRIORITY 15
-#define RT_MMCSD_STACK_SIZE 1024
-#define RT_MMCSD_THREAD_PREORITY 22
-#define RT_MMCSD_MAX_PARTITION 16
+#define RT_USING_SPI
+#define RT_USING_W25QXX
+#define RT_USING_SDIO 
+
 
 /* Using WiFi */
 
@@ -113,9 +115,6 @@
 
 /* POSIX layer and C standard library */
 
-#define RT_USING_LIBC
-#define RT_USING_PTHREADS
-#define RT_USING_POSIX
 
 /* Network */
 
@@ -170,25 +169,10 @@
 
 /* system packages */
 
-#define PKG_USING_GUIENGINE
-#define PKG_USING_GUIENGINE_LATEST_VERSION
-#define PKG_USING_RGB888_PIXEL_BITS_32
-#define PKG_USING_RGB888_PIXEL_BITS 32
-#define GUIENGINE_NAME_MAX 16
-#define GUIENG_USING_FNT_FILE
-#define GUIENGINE_USING_FONT16
-#define GUIENGINE_USING_FONT12
-#define GUIENGINE_USING_FONTHZ
-#define GUIENGINE_USING_HZ_FILE
-#define GUIENGINE_IMAGE_XPM
-#define GUIENGINE_USING_JPG
-#define GUIENGINE_IMAGE_TJPGD
-#define GUIENGINE_USING_PNG
-#define GUIENGINE_IMAGE_LODEPNG
-#define GUIENGINE_IMAGE_CONTAINER
-#define GUIENGINE_USING_DEMO
 
 /* peripheral libraries and drivers */
+
+/* sensors drivers */
 
 
 /* miscellaneous packages */
@@ -198,7 +182,5 @@
 
 #define SOC_STM32F4
 #define RT_USING_UART1
-#define RT_USING_UART2
-#define RT_USING_UART3
 
 #endif
