@@ -33,15 +33,16 @@
 #include <rtthread.h>
 #include <rthw.h>
 
-#ifdef RT_USING_SMP
+#ifdef RT_USING_SMP   //多处理器宏
 rt_hw_spinlock_t _rt_critical_lock;
 #endif /*RT_USING_SMP*/
 
-rt_list_t rt_thread_priority_table[RT_THREAD_PRIORITY_MAX];
-rt_uint32_t rt_thread_ready_priority_group;
+rt_list_t rt_thread_priority_table[RT_THREAD_PRIORITY_MAX];//优先级链表管理数组，每个优先级占用一个链表
+rt_uint32_t rt_thread_ready_priority_group;//已就绪任务优先级二级位图，用来查找当前最高优先级号
+                                            //该优先级号用来获取对应的任务链表
 #if RT_THREAD_PRIORITY_MAX > 32
 /* Maximum priority level, 256 */
-rt_uint8_t rt_thread_ready_table[32];
+rt_uint8_t rt_thread_ready_table[32];//当优先级大于32时，就绪任务的一级位图
 #endif
 
 #ifndef RT_USING_SMP
@@ -69,7 +70,7 @@ static void (*rt_scheduler_hook)(struct rt_thread *from, struct rt_thread *to);
  * @param hook the hook function
  */
 void
-rt_scheduler_sethook(void (*hook)(struct rt_thread *from, struct rt_thread *to))
+rt_scheduler_sethook(void (*hook)(struct rt_thread *from, struct rt_thread *to))//函数为参数
 {
     rt_scheduler_hook = hook;
 }
@@ -167,6 +168,7 @@ static struct rt_thread* _get_highest_priority_thread(rt_ubase_t *highest_prio)
     return highest_priority_thread;
 }
 #else
+    //输入优先级号，获取最高优先级线程
 static struct rt_thread* _get_highest_priority_thread(rt_ubase_t *highest_prio)
 {
     register struct rt_thread *highest_priority_thread;
@@ -212,9 +214,9 @@ void rt_system_scheduler_init(void)
 
     for (offset = 0; offset < RT_THREAD_PRIORITY_MAX; offset ++)
     {
-        rt_list_init(&rt_thread_priority_table[offset]);
+        rt_list_init(&rt_thread_priority_table[offset]);//初始化调度列表
     }
-#ifdef RT_USING_SMP
+#ifdef RT_USING_SMP//多处理器
     for (cpu = 0; cpu < RT_CPUS_NR; cpu++)
     {
         struct rt_cpu *pcpu =  rt_cpu_index(cpu);
@@ -235,15 +237,16 @@ void rt_system_scheduler_init(void)
 #endif /*RT_USING_SMP*/
 
     /* initialize ready priority group */
-    rt_thread_ready_priority_group = 0;
+    rt_thread_ready_priority_group = 0;//就绪二级位图
 
 #if RT_THREAD_PRIORITY_MAX > 32
     /* initialize ready table */
-    rt_memset(rt_thread_ready_table, 0, sizeof(rt_thread_ready_table));
+    rt_memset(rt_thread_ready_table, 0, sizeof(rt_thread_ready_table));//一级位图
 #endif
 
     /* initialize thread defunct */
-    rt_list_init(&rt_thread_defunct);
+    rt_list_init(&rt_thread_defunct);//该链表是用来保存脱离或删除回收线程节点的，空闲任务大部分时间就
+                                     //是在处理这些僵尸进程的
 }
 
 /**
@@ -253,7 +256,7 @@ void rt_system_scheduler_init(void)
  */
 void rt_system_scheduler_start(void)
 {
-    register struct rt_thread *to_thread;
+    register struct rt_thread *to_thread;//寄存器变量
     rt_ubase_t highest_ready_priority;
 
     to_thread = _get_highest_priority_thread(&highest_ready_priority);

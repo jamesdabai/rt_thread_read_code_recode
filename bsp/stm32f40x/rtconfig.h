@@ -12,6 +12,9 @@
 #define RT_THREAD_PRIORITY_MAX 32
 #define RT_TICK_PER_SECOND 100
 #define RT_USING_OVERFLOW_CHECK
+#define RT_USING_HOOK
+#define RT_USING_IDLE_HOOK
+#define RT_IDEL_HOOK_LIST_SIZE 4
 #define IDLE_THREAD_STACK_SIZE 1024
 #define RT_USING_TIMER_SOFT
 #define RT_TIMER_THREAD_PRIO 4
@@ -19,6 +22,14 @@
 #define RT_DEBUG
 #define RT_DEBUG_INIT_CONFIG
 #define RT_DEBUG_INIT 1
+#define RT_DEBUG_MEM_CONFIG
+#define RT_DEBUG_MEM 1
+#define RT_DEBUG_SLAB_CONFIG
+#define RT_DEBUG_SLAB 1
+#define RT_DEBUG_MEMHEAP_CONFIG
+#define RT_DEBUG_MEMHEAP 1
+#define RT_DEBUG_MODULE_CONFIG
+#define RT_DEBUG_MODULE 1
 
 /* Inter-Thread communication */
 
@@ -80,8 +91,6 @@
 #define DFS_FILESYSTEM_TYPES_MAX 2
 #define DFS_FD_MAX 16
 #define RT_USING_DFS_ELMFAT
-#define DFS_USING_WORKDIR
-
 
 /* elm-chan's FatFs, Generic FAT Filesystem Module */
 
@@ -90,8 +99,8 @@
 #define RT_DFS_ELM_USE_LFN_3
 #define RT_DFS_ELM_USE_LFN 3
 #define RT_DFS_ELM_MAX_LFN 255
-#define RT_DFS_ELM_DRIVES 3
-#define RT_DFS_ELM_MAX_SECTOR_SIZE 512*8
+#define RT_DFS_ELM_DRIVES 2
+#define RT_DFS_ELM_MAX_SECTOR_SIZE 512
 #define RT_DFS_ELM_REENTRANT
 #define RT_USING_DFS_DEVFS
 
@@ -104,8 +113,6 @@
 #define RT_USING_PIN
 #define RT_USING_SPI
 #define RT_USING_W25QXX
-#define RT_USING_SDIO 
-
 
 /* Using WiFi */
 
@@ -166,13 +173,46 @@
 
 /* tools packages */
 
+#define PKG_USING_SYSTEMVIEW
+#define PKG_SYSVIEW_APP_NAME "RT-Thread Trace"
+#define PKG_SYSVIEW_DEVICE_NAME "Cortex-M4"
+#define PKG_SYSVIEW_TIMESTAMP_FREQ 0
+#define PKG_SYSVIEW_CPU_FREQ 0
+#define PKG_SYSVIEW_RAM_BASE 0x20000000
+#define PKG_SYSVIEW_EVENTID_OFFSET 32
+#define PKG_SYSVIEW_USE_CYCCNT_TIMESTAMP
+#define PKG_SYSVIEW_SYSDESC0 "I#15=SysTick"
+#define PKG_SYSVIEW_SYSDESC1 ""
+#define PKG_SYSVIEW_SYSDESC2 ""
+
+/* Segger RTT configuration */
+
+#define PKG_SEGGER_RTT_MAX_NUM_UP_BUFFERS 3
+#define PKG_SEGGER_RTT_MAX_NUM_DOWN_BUFFERS 3
+#define PKG_SEGGER_RTT_BUFFER_SIZE_UP 1024
+#define PKG_SEGGER_RTT_BUFFER_SIZE_DOWN 16
+#define PKG_SEGGER_RTT_PRINTF_BUFFER_SIZE 64
+#define PKG_SEGGER_RTT_AS_SERIAL_DEVICE
+#define PKG_SERIAL_DEVICE_NAME "segger"
+#define PKG_SEGGER_RTT_MODE_ENABLE_NO_BLOCK_SKIP
+#define PKG_SEGGER_RTT_MAX_INTERRUPT_PRIORITY 0x20
+
+/* SystemView buffer configuration */
+
+#define PKG_SEGGER_SYSVIEW_RTT_BUFFER_SIZE 1024
+#define PKG_SEGGER_SYSVIEW_RTT_CHANNEL 1
+#define PKG_SEGGER_SYSVIEW_USE_STATIC_BUFFER
+
+/* SystemView Id configuration */
+
+#define PKG_SEGGER_SYSVIEW_ID_BASE 0x10000000
+#define PKG_SEGGER_SYSVIEW_ID_SHIFT 2
+#define PKG_USING_SYSTEMVIEW_LATEST_VERSION
 
 /* system packages */
 
 
 /* peripheral libraries and drivers */
-
-/* sensors drivers */
 
 
 /* miscellaneous packages */

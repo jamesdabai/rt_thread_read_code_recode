@@ -37,6 +37,10 @@
 
 /* global errno in RT-Thread */
 static volatile int __rt_errno;
+//全局错误变量的目的是为了储存在中断中发生的错误，如果是线程中的
+//错误，每个线程中都有一个自己的错误标记，不用全局的，如果没有中断发生的话，那这个变量就没有存在
+//的意义了。
+
 
 #if defined(RT_USING_DEVICE) && defined(RT_USING_CONSOLE)
 static rt_device_t _console_device = RT_NULL;
@@ -51,6 +55,8 @@ rt_err_t rt_get_errno(void)
 {
     rt_thread_t tid;
 
+    //判断是否在中断函数中调用的该函数，如果是，则直接返回全局错误变量
+    //如果是在线程中调用的，则返回当前线程中的错误号
     if (rt_interrupt_get_nest() != 0)
     {
         /* it's in interrupt context */
