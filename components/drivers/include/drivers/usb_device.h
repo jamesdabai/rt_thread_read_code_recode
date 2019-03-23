@@ -212,19 +212,20 @@ typedef struct udclass* udclass_t;
 
 enum udev_msg_type
 {
-    USB_MSG_SETUP_NOTIFY,
-    USB_MSG_DATA_NOTIFY,
-    USB_MSG_EP0_OUT,
+    USB_MSG_SETUP_NOTIFY,//设置消息
+    USB_MSG_DATA_NOTIFY,//IN和OUT事务通知，接收和发送数据
+    USB_MSG_EP0_OUT,//端点0的设置通知，在枚举的时候固定使用0地址0端点来进行通信
     USB_MSG_EP_CLEAR_FEATURE,        
-    USB_MSG_SOF,
-    USB_MSG_RESET,
-    USB_MSG_PLUG_IN,    
+    USB_MSG_SOF,//帧头通知
+    USB_MSG_RESET,//复位USB通知
+    USB_MSG_PLUG_IN,    //热插拔中的插入事件通知
     /* we don't need to add a "PLUG_IN" event because after the cable is
      * plugged in(before any SETUP) the classed have nothing to do. If the host
      * is ready, it will send RESET and we will have USB_MSG_RESET. So, a RESET
      * should reset and run the class while plug_in is not. */
-    USB_MSG_PLUG_OUT,
+    USB_MSG_PLUG_OUT,//热插拔中的拔出事件通知
 };
+
 typedef enum udev_msg_type udev_msg_type;
 
 struct ep_msg

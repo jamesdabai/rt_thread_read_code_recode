@@ -798,7 +798,7 @@ static rt_err_t _data_notify(udevice_t device, struct ep_msg* ep_msg)
         return -RT_ERROR;
     }
 
-    if(EP_ADDRESS(ep) & USB_DIR_IN)
+    if(EP_ADDRESS(ep) & USB_DIR_IN)//IN事务的数据，需要发送数据，主机在请求设备发送数据
     {
         size = ep_msg->size;
         if(ep->request.remain_size >= EP_MAXPACKET(ep))
@@ -817,7 +817,7 @@ static rt_err_t _data_notify(udevice_t device, struct ep_msg* ep_msg)
             EP_HANDLER(ep, func, size);
         }
     }
-    else
+    else//OUT事务
     {
         size = ep_msg->size;
         if(ep->request.remain_size == 0)
@@ -2106,6 +2106,8 @@ static struct rt_messagequeue usb_mq;
  *
  * @return none.
  */
+ //用来转发各种消息的，USB产生的各种请求和数据信息，都是在各个USB中断中将信息发送到该线程
+ //然后由该线程进行数据分析和处理
 static void rt_usbd_thread_entry(void* parameter)
 {
     while(1)
@@ -2127,32 +2129,32 @@ static void rt_usbd_thread_entry(void* parameter)
 
         RT_DEBUG_LOG(RT_DEBUG_USB, ("message type %d\n", msg.type));
         
-        switch (msg.type)
+        switch (msg.type)//每种USB设备类都是这个过程，只是发送和接收的内容协议不同，需要按照各自的协议去解析
         {
         case USB_MSG_SOF:
-            _sof_notify(device);
+            _sof_notify(device);//帧头通知
             break;
-        case USB_MSG_DATA_NOTIFY:
+        case USB_MSG_DATA_NOTIFY://IN和OUT事务通知，接收和发送数据
             /* some buggy drivers will have USB_MSG_DATA_NOTIFY before the core
              * got configured. */
             _data_notify(device, &msg.content.ep_msg);
             break;
         case USB_MSG_SETUP_NOTIFY:
-            _setup_request(device, &msg.content.setup);
+            _setup_request(device, &msg.content.setup);//标准请求都在这里，设置消息
             break;
-        case USB_MSG_EP0_OUT:
+        case USB_MSG_EP0_OUT://端点0的设置通知，在枚举的时候固定使用0地址0端点来进行通信
             _ep0_out_notify(device, &msg.content.ep_msg);
             break;
-        case USB_MSG_RESET:            
+        case USB_MSG_RESET:            //复位USB通知
             RT_DEBUG_LOG(RT_DEBUG_USB, ("reset %d\n", device->state));
             if (device->state == USB_STATE_ADDRESS || device->state == USB_STATE_CONFIGURED)
                 _stop_notify(device);
             device->state = USB_STATE_NOTATTACHED;
             break;
-        case USB_MSG_PLUG_IN:
+        case USB_MSG_PLUG_IN://热插拔中的插入事件通知
             device->state = USB_STATE_ATTACHED;
             break;
-        case USB_MSG_PLUG_OUT:
+        case USB_MSG_PLUG_OUT://热插拔中的拔出事件通知
             device->state = USB_STATE_NOTATTACHED;    
             _stop_notify(device);
             break;

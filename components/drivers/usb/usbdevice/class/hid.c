@@ -38,7 +38,7 @@ struct hid_s
 ALIGN(4)
 const rt_uint8_t _report_desc[]=
 {
-#ifdef RT_USB_DEVICE_HID_KEYBOARD
+#ifdef RT_USB_DEVICE_HID_KEYBOARD//64个字节
     USAGE_PAGE(1),      0x01,
     USAGE(1),           0x06,
     COLLECTION(1),      0x01,
@@ -246,7 +246,7 @@ static struct udevice_descriptor _dev_desc =
     USB_DESC_LENGTH_DEVICE,     //bLength;
     USB_DESC_TYPE_DEVICE,       //type;
     USB_BCD_VERSION,            //bcdUSB;
-    USB_CLASS_HID,              //bDeviceClass;
+    USB_CLASS_HID,              //bDeviceClass;//如果这里为0，表示该信息在接口描述符中定义的，后面两项都必须为0
     0x00,                       //bDeviceSubClass;
     0x00,                       //bDeviceProtocol;
     64,                         //bMaxPacketSize0;
@@ -307,8 +307,9 @@ const static struct uhid_comm_descriptor _hid_comm_desc =
         USB_DESC_LENGTH_INTERFACE,
         USB_DESC_TYPE_INTERFACE,
         USB_DYNAMIC,                /* bInterfaceNumber: Number of Interface */
-        0x00,                       /* bAlternateSetting: Alternate setting */
-        0x02,                       /* bNumEndpoints */
+        0x00,                       /* bAlternateSetting: Alternate setting 接口编号备用设置*/
+        0x02,                       /* bNumEndpoints 该接口有的端点数*/
+        //接下来的3个字节，是在设备描述符中没有定义时，这个起作用
         0x03,                       /* bInterfaceClass: HID */
 #if defined(RT_USB_DEVICE_HID_KEYBOARD)||defined(RT_USB_DEVICE_HID_MOUSE)
         USB_HID_SUBCLASS_BOOT,    /* bInterfaceSubClass : 1=BOOT, 0=no boot */
@@ -747,3 +748,128 @@ int rt_usbd_hid_class_register(void)
 }
 INIT_PREV_EXPORT(rt_usbd_hid_class_register);
 #endif /* RT_USB_DEVICE_HID */
+
+
+
+#if 0//网上关于各种描述符的详细介绍，保留
+/* USB设备描述符*/
+const uint8_t CustomHID_DeviceDescriptor[CUSTOMHID_SIZ_DEVICE_DESC] =
+  {
+    0x12,                       /*bLength 描述符的长度*/
+    USB_DEVICE_DESCRIPTOR_TYPE, /*bDescriptorType  描述符的类型（设备描述符为0x01）*/
+    0x00,                       /*bcdUSB USB协议的版本*/
+    0x02,
+        
+    0x00,                       /*bDeviceClass 类代码*/
+    0x00,                       /*bDeviceSubClass 子类代码*/
+    0x00,                       /*bDeviceProtocol  设备所使用的协议*/
+    0x40,                       /*bMaxPacketSize 端点0的最大包长*/
+        /*idVendor  厂商ID*/
+    LOBYTE(USB_VID),                       
+    HIBYTE(USB_VID),
+        /*idProduct 设备ID*/
+    LOBYTE(USB_PID),                       
+    HIBYTE(USB_PID),
+        
+    0x00,                       /*bcdDevice rel 设备版本号*/
+    0x02,
+         
+    1,                          /*描述生产厂家的字符串描述符的索引*/
+    2,                          /*描述产品的字符串描述符的索引*/
+    3,                          /*产品序列号的字符串描述符的索引*/
+    0x01                        /*bNumConfigurations  可能的配置数*/
+  }
+  ; /* CustomHID_DeviceDescriptor */
+
+
+/* USB配置描述符 */
+/*   All Descriptor s (Configuration, Interface, Endpoint, Class, Vendor */
+const uint8_t CustomHID_ConfigDescriptor[CUSTOMHID_SIZ_CONFIG_DESC] =
+  {
+        //以下为配置描述符
+    0x09, /* bLength: 端点描述符长度*/
+    USB_CONFIGURATION_DESCRIPTOR_TYPE, /* bDescriptorType: 描述符类型 （配置描述符为0x02）  */
+        
+    LOBYTE(CUSTOMHID_SIZ_CONFIG_DESC),/* wTotalLength: 配置描述符集合总长度 */
+    HIBYTE(CUSTOMHID_SIZ_CONFIG_DESC),
+        
+    0x01,         /* bNumInterfaces: 该配置所支持的接口数*/
+    0x01,         /* bConfigurationValue: 该配置的值*/
+    0x00,         /* iConfiguration: 描述配置的字符串描述符的索引*/
+    0xA0,         /* bmAttributes:该设备的属性（总线供电，支持远程唤醒）
+                                        bit 4 ... 0: 保留（必须为0）
+                                        bit 5: 1表示支持远程唤醒
+                                        bit 6: 1表示设备是自供电 0表示是总线供电
+                                        bit 7: 保留（必须为1）    */
+        
+    0xC8,         /* MaxPower 设备所需要的电流（单位为2mA）400 mA*/
+        
+        
+        //以下为接口描述符
+    0x09,         /* bLength: 接口描述符长度*/
+    USB_INTERFACE_DESCRIPTOR_TYPE,/* bDescriptorType: 描述符类型 （接口描述符为0x04）*/
+    0x00,         /* bInterfaceNumber: 该接口编号（从0开始） */
+    0x00,         /* bAlternateSetting: 该接口的备用编号 */
+    0x02,         /* bNumEndpoints 该接口所使用的端点数*/
+    0x03,         /* bInterfaceClass: 该接口所使用的类*/
+    0x00,         /* bInterfaceSubClass : 该接口所使用的子类 */
+    0x00,         /* nInterfaceProtocol : 该接口所使用的协议 0 =无，1 =键盘，2 =鼠标*/
+    0,            /* iInterface: 描述该接口的字符串描述符的索引 */
+        
+        //以下为HID描述符
+    0x09,         /* bLength: HID描述符长度 */
+    HID_DESCRIPTOR_TYPE, /* bDescriptorType: 描述符类型 （接口描述符为0x21） */
+    0x10,         /* bcdHID: HID 协议版本号 */
+    0x01,
+    0x00,         /* bCountryCode: 国家代码 (美式键盘代码为0x21)*/
+    0x01,         /* bNumDescriptors:下级描述符的数量*/
+    0x22,         /* bDescriptorType 下级描述符的类型*/
+    LOBYTE(CUSTOMHID_SIZ_REPORT_DESC),/* wItemLength: 下级描述符的长度*/
+    HIBYTE(CUSTOMHID_SIZ_REPORT_DESC),
+        
+        //以下为端点描述符
+    /******************** Descriptor of Custom HID endpoints ******************/
+    0x07,          /* bLength:端点描述符长度 */
+    USB_ENDPOINT_DESCRIPTOR_TYPE, /* 描述符类型 （端点描述符为0x05）*/
+    0x81,          /* bEndpointAddress：端点地址
+                       bit 3 ... 0：端点号
+                       bit 6 ... 4：保留(设置为0)
+                       bit 7：0（OUT），1（IN）*/
+    0x03,          /* bmAttributes: 端点属性 
+                             bit 1 ... 0：表示该端点的传输类型
+                                                                            0  控制传输
+                                                                            1  等时传输
+                                                                            2  批量传输
+                                                                            3  中断传输
+                                                 bit 7 ... 2：如果该端点是非等时传输 则bit 7 ~ 2 保留(设置为0)
+                                                                            如果该端点是等时传输
+                                                                            bit 3 ... 2：    表示同步类型
+                                                                                                              0 无同步
+                                                                                                                1    异步
+                                                                                                                2 适配
+                                                                                                                3 同步
+                                                                            bit 5 ... 4：    表示用途
+                                                                                                              0 数据端点
+                                                                                                                1    反馈端点
+                                                                                                                2 暗含反馈的数据端点
+                                                                                                                3 保留
+                                                                            bit 7 ... 6：    保留*/
+    0x40,          /* wMaxPacketSize: 该端点支持的最大包长度 */
+    0x00,
+    0x0A,          /* bInterval:端口的查询时间*/
+        
+        //以下为输出端点1描述符
+    0x07,    /*bLength：端点描述符大小 */
+    USB_ENDPOINT_DESCRIPTOR_TYPE,    /* 端点描述符类型*/
+    0x01,              /* bEndpointAddress：端点地址
+                       bit 3 ... 0：端点号
+                       bit 6 ... 4：保留
+                       bit 7：0（OUT），1（IN）*/
+    0x03,    /* bmAttributes: 中断端点 */
+    0x40,    /* wMaxPacketSize: 最多64个字节  */
+    0x00,
+    0x0A,    /* bInterval: 轮询间隔（20毫秒）*/
+  };
+
+
+#endif

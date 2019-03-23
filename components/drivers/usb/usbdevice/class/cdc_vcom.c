@@ -150,14 +150,14 @@ const static struct ucdc_comm_descriptor _comm_desc =
         USB_CDC_PROTOCOL_V25TER,
         0x00,
     },
-    /* Header Functional Descriptor */   
+    /* Header Functional Descriptor 标题功能描述符*/   
     {
         0x05,                              
         USB_CDC_CS_INTERFACE,
         USB_CDC_SCS_HEADER,
         0x0110,
     },
-    /* Call Management Functional Descriptor */   
+    /* Call Management Functional Descriptor 呼叫管理功能描述符*/   
     {
         0x05,            
         USB_CDC_CS_INTERFACE,

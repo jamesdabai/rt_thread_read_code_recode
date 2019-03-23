@@ -17,6 +17,9 @@
 
 #define USB_DEVICE_CONTROLLER_NAME      "usbd"
 
+//组合设备和复合设备不同
+//组合设备是一个USB设备通过不同的接口来实现不同的设备，一个接口代表一个设备
+//复合设备指的是在设备里面通过hub来连接多个设备，达到一个端口多个设备操作的目的
 #ifdef RT_USB_DEVICE_COMPOSITE
 const static char* ustring[] =
 {
@@ -28,7 +31,7 @@ const static char* ustring[] =
     "Interface",
     USB_STRING_OS
 };
-
+//设备描述符，一个设备只有一个，所有这里单独列出来
 static struct udevice_descriptor compsit_desc =
 {
     USB_DESC_LENGTH_DEVICE,     //bLength;
@@ -83,7 +86,7 @@ INIT_BOARD_EXPORT(rt_usbd_class_list_init);
 
 rt_err_t rt_usbd_class_register(udclass_t udclass)
 {
-#ifndef RT_USB_DEVICE_COMPOSITE
+#ifndef RT_USB_DEVICE_COMPOSITE//USB复合设备
     if(!rt_list_isempty(&class_list))
     {
         rt_kprintf("[D/USBD] If you want to use usb composite device please define RT_USB_DEVICE_COMPOSITE\n");
@@ -94,7 +97,7 @@ rt_err_t rt_usbd_class_register(udclass_t udclass)
     return RT_EOK;
 }
 
-rt_err_t rt_usb_device_init(void)
+rt_err_t rt_usb_device_init(void)//USB设备初始化的入口
 {
     rt_device_t udc;
     udevice_t udevice;
@@ -103,13 +106,13 @@ rt_err_t rt_usb_device_init(void)
     rt_list_t *i;
     udclass_t udclass;
 
-    if(rt_list_isempty(&class_list))
+    if(rt_list_isempty(&class_list))//如果USB列表中还没有USB设备注册在上面，返回错误
     {
         rt_kprintf("[D/USBD] No class register on usb device\n");
         return RT_ERROR;
     }
     /* create and startup usb device thread */
-    rt_usbd_core_init();
+    rt_usbd_core_init();//将开启一个USB接收和发送数据的线程，优先级比较高
 
     /* create a device object */
     udevice = rt_usbd_device_new();
@@ -129,7 +132,7 @@ rt_err_t rt_usb_device_init(void)
 
     rt_usbd_device_set_os_comp_id_desc(udevice, &usb_comp_id_desc);
 
-    for(i = class_list.next; i!= &class_list; i = i->next)
+    for(i = class_list.next; i!= &class_list; i = i->next)//如果有多个USB是这样配置的？？
     {
         /* get a class creater */
         udclass = rt_list_entry(i, struct udclass, list);

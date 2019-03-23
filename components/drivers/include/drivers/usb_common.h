@@ -42,16 +42,16 @@ extern "C" {
 #define USB_CLASS_APP_SPECIFIC          0xfe
 #define USB_CLASS_VEND_SPECIFIC         0xff
 
-#define USB_DESC_TYPE_DEVICE            0x01
-#define USB_DESC_TYPE_CONFIGURATION     0x02
-#define USB_DESC_TYPE_STRING            0x03
-#define USB_DESC_TYPE_INTERFACE         0x04
-#define USB_DESC_TYPE_ENDPOINT          0x05
-#define USB_DESC_TYPE_DEVICEQUALIFIER   0x06
+#define USB_DESC_TYPE_DEVICE            0x01//设备描述符
+#define USB_DESC_TYPE_CONFIGURATION     0x02//配置描述符
+#define USB_DESC_TYPE_STRING            0x03//字符串描述符
+#define USB_DESC_TYPE_INTERFACE         0x04//接口描述符
+#define USB_DESC_TYPE_ENDPOINT          0x05//端点描述符
+#define USB_DESC_TYPE_DEVICEQUALIFIER   0x06//限定描述符，在全速和高速USB中使用
 #define USB_DESC_TYPE_OTHERSPEED        0x07
 #define USB_DESC_TYPE_IAD               0x0b
-#define USB_DESC_TYPE_HID               0x21
-#define USB_DESC_TYPE_REPORT            0x22
+#define USB_DESC_TYPE_HID               0x21//HID描述符
+#define USB_DESC_TYPE_REPORT            0x22//报告描述符
 #define USB_DESC_TYPE_PHYSICAL          0x23
 #define USB_DESC_TYPE_HUB               0x29
 
@@ -319,7 +319,7 @@ struct uinterface_descriptor
 };
 typedef struct uinterface_descriptor* uintf_desc_t;
 
-/* Interface Association Descriptor (IAD) */
+/* Interface Association Descriptor (IAD)接口关联描述符 */
 struct uiad_descriptor
 {
     rt_uint8_t bLength;
