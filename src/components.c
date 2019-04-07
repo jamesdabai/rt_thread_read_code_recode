@@ -184,7 +184,7 @@ void main_thread_entry(void *parameter)
     
 #if defined(RT_USING_W25QXX) && defined(RT_USING_DEVICE)
 
-    w25qxx_init("w25qxx","spi10");
+    //w25qxx_init("w25qxx","spi10");
 #endif  /* RT_USING_DFS */
 
         /* Filesystem Initialization *///add by xiaqiyun 

@@ -105,7 +105,7 @@ rt_err_t rt_usb_device_init(void)//USB设备初始化的入口
     ufunction_t func;
     rt_list_t *i;
     udclass_t udclass;
-
+    //每种类会在初始化之前就已经注册了
     if(rt_list_isempty(&class_list))//如果USB列表中还没有USB设备注册在上面，返回错误
     {
         rt_kprintf("[D/USBD] No class register on usb device\n");
